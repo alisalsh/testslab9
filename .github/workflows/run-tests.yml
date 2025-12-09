@@ -1,41 +1,64 @@
-name: Simple Selenium Tests
+name: Run Selenium Tests
 
-on: [push, pull_request]
+on:
+  push:
+    branches: [ main, master ]
+  pull_request:
+    branches: [ main, master ]
+  # Для ручного запуска workflow
+  workflow_dispatch:
 
 jobs:
   test:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-latest  # Используем последнюю версию Ubuntu
+    
+    strategy:
+      matrix:
+        python-version: ["3.9", "3.10", "3.11"]  # Тестируем на разных версиях Python
     
     steps:
-    - uses: actions/checkout@v3
+    # Шаг 1: Получаем код из репозитория
+    - name: Checkout repository
+      uses: actions/checkout@v3
     
-    - name: Set up Python
+    # Шаг 2: Устанавливаем Python
+    - name: Set up Python ${{ matrix.python-version }}
       uses: actions/setup-python@v4
       with:
-        python-version: '3.11'
+        python-version: ${{ matrix.python-version }}
     
-    - name: Install Chrome and ChromeDriver
+    # Шаг 3: Устанавливаем Chrome браузер
+    - name: Install Chrome
       run: |
         sudo apt-get update
-        sudo apt-get install -y chromium-browser chromium-chromedriver
-        chromedriver --version
+        sudo apt-get install -y google-chrome-stable
     
+    # Шаг 4: Устанавливаем зависимости Python
     - name: Install Python dependencies
       run: |
-        pip install selenium pytest pytest-html
+        python -m pip install --upgrade pip
+        pip install -r requirements.txt
     
-    - name: Run tests (без webdriver-manager)
+    # Шаг 5: Устанавливаем ChromeDriver через webdriver-manager
+    - name: Install ChromeDriver
       run: |
-        # Проверяем, что chromedriver доступен
-        which chromedriver
-        chromedriver --version
-        
-        # Запускаем тесты
-        python -m pytest test_positive_scenario.py test_negative_scenario.py -v --html=report.html
+        python -c "from webdriver_manager.chrome import ChromeDriverManager; ChromeDriverManager().install()"
     
+    # Шаг 6: Запускаем тесты
+    - name: Run tests with pytest
+      run: |
+        python -m pytest test_positive.py test_negative.py -v
+    
+    # Шаг 7: Генерируем отчет (опционально)
+    - name: Generate HTML report
+      if: always()  # Выполняется всегда, даже если тесты упали
+      run: |
+        python -m pytest test_positive.py test_negative.py --html=report.html --self-contained-html
+    
+    # Шаг 8: Загружаем отчет как артефакт
     - name: Upload test report
       if: always()
-      uses: actions/upload-artifact@v4
+      uses: actions/upload-artifact@v3
       with:
-        name: test-report
+        name: test-report-python-${{ matrix.python-version }}
         path: report.html
