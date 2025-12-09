@@ -12,20 +12,20 @@ jobs:
     runs-on: ubuntu-latest
     
     steps:
-    # Шаг 1: Получение кода из репозитория
+    #  Получение кода из репозитория
     - name: Checkout repository
       uses: actions/checkout@v4
       with:
-        fetch-depth: 0  # Получаем всю историю коммитов
+        fetch-depth: 0  
       
-    # Шаг 2: Установка Python
+    #  Установка Python
     - name: Set up Python
       uses: actions/setup-python@v5
       with:
         python-version: '3.10'
         cache: 'pip'
         
-    # Шаг 3: Проверка структуры проекта
+    # Проверка структуры проекта
     - name: Check project structure
       run: |
         echo "Current directory: $(pwd)"
@@ -43,7 +43,7 @@ jobs:
           echo "requirements.txt not found"
         fi
         
-    # Шаг 4: Установка зависимостей
+    #  Установка зависимостей
     - name: Install dependencies
       run: |
         echo "Upgrading pip..."
@@ -63,11 +63,11 @@ jobs:
         echo "Installed packages:"
         pip list | grep -E "(selenium|pytest|webdriver)"
         
-    # Шаг 5: Установка Chrome
+    #  Установка Chrome
     - name: Set up Chrome
       uses: browser-actions/setup-chrome@v1
       
-    # Шаг 6: Проверка установки Chrome
+    #  Проверка установки Chrome
     - name: Verify Chrome installation
       run: |
         echo "Checking Chrome installation..."
@@ -87,7 +87,7 @@ jobs:
           echo "ChromeDriver not in PATH"
         fi
       
-    # Шаг 7: Запуск тестов с детальным выводом
+    #  Запуск тестов с детальным выводом
     - name: Run tests with pytest
       run: |
         echo "Starting test execution..."
@@ -108,7 +108,7 @@ jobs:
           --html=test-report.html \
           --self-contained-html
         
-        # Сохраняем код завершения
+
         TEST_EXIT_CODE=$?
         echo "Test exit code: $TEST_EXIT_CODE"
         
@@ -120,7 +120,7 @@ jobs:
         
         exit $TEST_EXIT_CODE
         
-    # Шаг 8: Генерация подробного отчета
+    #  отчет
     - name: Create detailed test summary
       if: always()
       run: |
@@ -148,7 +148,7 @@ jobs:
           echo "No previously failed tests" >> $GITHUB_STEP_SUMMARY
         fi
         
-    # Шаг 9: Сохранение артефактов
+  
     - name: Upload test artifacts
       if: always()
       uses: actions/upload-artifact@v4
@@ -159,7 +159,7 @@ jobs:
           .pytest_cache/
         retention-days: 7
         
-    # Шаг 10: Сохранение логов при неудаче
+
     - name: Collect debug information on failure
       if: failure()
       run: |
@@ -206,7 +206,7 @@ jobs:
         path: debug-info/
         retention-days: 7
         
-    # Шаг 11: Финальное сообщение
+
     - name: Final status message
       if: always()
       run: |
