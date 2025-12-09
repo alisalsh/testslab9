@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <title>Контактная форма</title>
+    <style>
+        body {
+            max-width: 600px;
+            margin: 20px auto;
+            padding: 0 20px;
+        }
+        
+        h1 {
+            color: #000000;
+            text-align: center;
+        }
+        
+        form {
+            background: #f9f9f9;
+            padding: 20px;
+        }
+        
+        div {
+            margin-bottom: 30px;
+        }
+        
+        label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+            color: #000000;
+        }
+        
+        input, textarea {
+            width: 100%;
+            padding: 8px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            box-sizing: border-box;
+        }
+        
+        button {
+            background: #007bff;
+            color: white;
+            padding: 10px 20px;
+        }
+        .error {
+            color: red;
+        }
+        
+        #successMessage {
+            background: #d4edda;
+            color: #155724;
+        }
+    </style>
+</head>
+<body>
+    <h1>Форма</h1>
+    <form id="contactForm">
+        <div>
+            <label for="name">Имя*:</label>
+            <input type="text" id="name" name="name" >
+            <span class="error" id="nameError"></span>
+        </div>
+        <div>
+            <label for="email">Email*:</label>
+            <input id="email" name="email" >
+            <span class="error" id="emailError"></span>
+        </div>
+        <div>
+            <label for="phone">Телефон:</label>
+            <input type="tel" id="phone" name="phone">
+            <span class="error" id="phoneError"></span>
+        </div>
+        <div>
+            <label for="message">Сообщение*:</label>
+            <textarea id="message" name="message" ></textarea>
+            <span class="error" id="messageError"></span>
+        </div>
+        <button type="submit">Отправить</button>
+    </form>
+    <div id="successMessage" style="display:none; color:green;">
+        Спасибо! Ваше сообщение отправлено.
+    </div>
+
+    <script>
+        document.getElementById('contactForm').addEventListener('submit', function(event) {
+            event.preventDefault();
+            let isValid = true;
+            document.querySelectorAll('.error').forEach(e => e.textContent = '');
+            document.getElementById('successMessage').style.display = 'none';
+            const name = document.getElementById('name').value.trim();
+            if (name === '') {
+                document.getElementById('nameError').textContent = 'Имя обязательно для заполнения.';
+                isValid = false;
+            }
+            const email = document.getElementById('email').value.trim();
+            const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+            if (email === '') {
+                document.getElementById('emailError').textContent = 'Email обязателен для заполнения.';
+                isValid = false;
+            } else if (!emailRegex.test(email)) {
+                document.getElementById('emailError').textContent = 'Введите корректный email.';
+                isValid = false;
+            }
+
+            const phone = document.getElementById('phone').value.trim();
+            const phoneRegex = /^[0-9]{10}$/;
+            if (phone !== '' && !phoneRegex.test(phone)) {
+                document.getElementById('phoneError').textContent = 'Телефон должен содержать 10 цифр.';
+                isValid = false;
+            }
+
+            const message = document.getElementById('message').value.trim();
+            if (message === '') {
+                document.getElementById('messageError').textContent = 'Сообщение обязательно для заполнения.';
+                isValid = false;
+            }
+
+            if (isValid) {
+                console.log('Форма отправлена!', { name, email, phone, message });
+                document.getElementById('successMessage').style.display = 'block';
+                this.reset();
+            }
+        });
+    </script>
+</body>
+</html>
