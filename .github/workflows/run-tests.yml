@@ -5,54 +5,65 @@ on:
     branches: [ main, master ]
   pull_request:
     branches: [ main, master ]
-  workflow_dispatch:  # Позволяет запускать workflow вручную из интерфейса GitHub
+  workflow_dispatch:  # Позволяет запускать workflow вручную
 
 jobs:
   test:
-    runs-on: ubuntu-latest  # Используем последнюю версию Ubuntu
+    runs-on: ubuntu-latest
     
     steps:
     # Шаг 1: Получение кода из репозитория
     - name: Checkout repository
-      uses: actions/checkout@v3
+      uses: actions/checkout@v4  # Обновлено до v4
       
     # Шаг 2: Установка Python
     - name: Set up Python
-      uses: actions/setup-python@v4
+      uses: actions/setup-python@v5  # Обновлено до v5
       with:
-        python-version: '3.9'  # Указываем версию Python
+        python-version: '3.10'  # Более новая версия Python
+        cache: 'pip'  # Кэширование pip-пакетов для ускорения
         
     # Шаг 3: Установка зависимостей
     - name: Install dependencies
       run: |
         python -m pip install --upgrade pip
-        pip install -r requirements.txt
+        if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
+        pip install selenium pytest webdriver-manager
         
-    # Шаг 4: Установка Chrome и ChromeDriver
-    - name: Install Chrome and ChromeDriver
-      run: |
-        sudo apt-get update
-        sudo apt-get install -y wget unzip
-        wget -q -O - https://dl-ssl.google.com/linux/linux_signing_key.pub | sudo apt-key add -
-        echo "deb [arch=amd64] http://dl.google.com/linux/chrome/deb/ stable main" | sudo tee /etc/apt/sources.list.d/google-chrome.list
-        sudo apt-get update
-        sudo apt-get install -y google-chrome-stable
-        CHROME_VERSION=$(google-chrome --version | awk '{print $3}' | cut -d'.' -f1)
-        wget -O /tmp/chromedriver.zip "https://chromedriver.storage.googleapis.com/$(wget -q -O - https://chromedriver.storage.googleapis.com/LATEST_RELEASE_${CHROME_VERSION})/chromedriver_linux64.zip"
-        sudo unzip /tmp/chromedriver.zip -d /usr/local/bin/
-        sudo chmod +x /usr/local/bin/chromedriver
-        
+    # Шаг 4: Установка Chrome и ChromeDriver (упрощенный способ)
+    - name: Set up Chrome
+      uses: browser-actions/setup-chrome@v1  # Специальное действие для Chrome
+      
     # Шаг 5: Запуск тестов
     - name: Run tests with pytest
       run: |
         python -m pytest test_positive.py test_negative.py -v
         
-    # Шаг 6: (Опционально) Генерация отчета о покрытии тестами
-    - name: Upload test results
-      if: always()  # Запускается даже если тесты упали
-      uses: actions/upload-artifact@v3
+    # Шаг 6: Создание простого отчета о тестировании
+    - name: Create test summary
+      if: always()
+      run: |
+        echo "# Test Results" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "✅ Tests completed on $(date)" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "**Workflow:** ${{ github.workflow }}" >> $GITHUB_STEP_SUMMARY
+        echo "**Branch:** ${{ github.ref_name }}" >> $GITHUB_STEP_SUMMARY
+        echo "**Commit:** ${{ github.sha }}" >> $GITHUB_STEP_SUMMARY
+        
+    # Шаг 7: (Опционально) Сохранение логирования
+    - name: Save logs
+      if: failure()  # Сохраняем логи только при падении тестов
+      run: |
+        mkdir -p test-logs
+        echo "Test run completed at: $(date)" > test-logs/test-summary.txt
+        echo "GitHub SHA: ${{ github.sha }}" >> test-logs/test-summary.txt
+        echo "Branch: ${{ github.ref }}" >> test-logs/test-summary.txt
+        
+    - name: Upload test logs
+      if: failure()
+      uses: actions/upload-artifact@v4  # Обновлено до v4
       with:
-        name: test-results
-        path: |
-          __pycache__/
-        retention-days: 5
+        name: test-failure-logs
+        path: test-logs/
+        retention-days: 7
