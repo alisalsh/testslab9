@@ -54,7 +54,7 @@ jobs:
     # Шаг 5: Запустить тесты
     - name: Run tests
       run: |
-        python -m pytest test_contact_form_positive.py test_contact_form_negative.py -v --html=report.html
+         python -m pytest test_positive_scenario.py test_negative_scenario.py -v --html=report.html
     
 # Шаг 6: Загрузить отчет о тестировании (опционально)
     - name: Upload test report
