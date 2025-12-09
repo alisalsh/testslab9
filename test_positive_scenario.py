@@ -2,11 +2,28 @@ import unittest
 from selenium import webdriver
 from contact_page import ContactPage
 import os
+import unittest
+from selenium import webdriver
+from selenium.webdriver.chrome.options import Options
+from selenium.webdriver.chrome.service import Service
+from webdriver_manager.chrome import ChromeDriverManager
+from contact_page import ContactPage
+import os
 
 class TestContactFormPositive(unittest.TestCase):
     
     def setUp(self):
-        self.driver = webdriver.Chrome() 
+        # Настройки для CI/CD
+        chrome_options = Options()
+        chrome_options.add_argument('--headless')  # Без графического интерфейса
+        chrome_options.add_argument('--no-sandbox')
+        chrome_options.add_argument('--disable-dev-shm-usage')
+        chrome_options.add_argument('--disable-gpu')
+        
+        # Автоматическая установка ChromeDriver
+        service = Service(ChromeDriverManager().install())
+        self.driver = webdriver.Chrome(service=service, options=chrome_options)
+        
         self.contact_page = ContactPage(self.driver)
         
         current_dir = os.path.dirname(os.path.abspath(__file__))
@@ -15,7 +32,8 @@ class TestContactFormPositive(unittest.TestCase):
         self.contact_page.load(html_file_path)
     
     def tearDown(self):
-        self.driver.quit()
+        if self.driver:
+            self.driver.quit()
     
     def test_successful_form_submission_with_all_fields(self):
         # Тестовые данные
