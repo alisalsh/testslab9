@@ -1,6 +1,7 @@
 import unittest
 from selenium import webdriver
 from selenium.webdriver.chrome.service import Service
+from selenium.webdriver.chrome.options import Options
 from webdriver_manager.chrome import ChromeDriverManager
 from contact_page import ContactPage
 import os
@@ -8,9 +9,17 @@ import os
 class TestContactFormPositive(unittest.TestCase):
     
     def setUp(self):
-        # Используем webdriver-manager для автоматической загрузки ChromeDriver
+        # Настройка Chrome для headless режима
+        chrome_options = Options()
+        chrome_options.add_argument("--headless")  # Без графического интерфейса
+        chrome_options.add_argument("--no-sandbox")
+        chrome_options.add_argument("--disable-dev-shm-usage")
+        chrome_options.add_argument("--disable-gpu")
+        chrome_options.add_argument("--window-size=1920,1080")
+        
+        # Используем webdriver-manager
         service = Service(ChromeDriverManager().install())
-        self.driver = webdriver.Chrome(service=service)
+        self.driver = webdriver.Chrome(service=service, options=chrome_options)
         self.contact_page = ContactPage(self.driver)
         
         current_dir = os.path.dirname(os.path.abspath(__file__))
