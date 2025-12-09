@@ -56,9 +56,10 @@ jobs:
       run: |
         python -m pytest test_contact_form_positive.py test_contact_form_negative.py -v --html=report.html
     
-    # Шаг 6: Загрузить отчет о тестировании (опционально)
+# Шаг 6: Загрузить отчет о тестировании (опционально)
     - name: Upload test report
-  uses: actions/upload-artifact@v4
-  with:
-    name: test-report
-    path: report.html
+      uses: actions/upload-artifact@v4
+      if: always()  # Загружать даже если тесты упали
+      with:
+        name: test-report
+        path: report.html
