@@ -1,18 +1,13 @@
 name: Run Selenium Tests
 
-on:
-  push:
-    branches: [ main, master ]
-  pull_request:
-    branches: [ main, master ]
-  workflow_dispatch:  # Позволяет запускать вручную через GitHub UI
+on: [push, pull_request]
 
 jobs:
   test:
     runs-on: ubuntu-latest
     
     steps:
-    # Шаг 1: Получить код из репозитория
+    # Шаг 1: Получить код
     - name: Checkout repository
       uses: actions/checkout@v3
     
@@ -22,44 +17,55 @@ jobs:
       with:
         python-version: '3.11'
     
-    # Шаг 3: Установить зависимости
-    - name: Install dependencies
+    # Шаг 3: Установить зависимости Python
+    - name: Install Python dependencies
       run: |
         python -m pip install --upgrade pip
-        pip install -r requirements.txt
+        # Устанавливаем всё что нужно
+        pip install selenium pytest pytest-html webdriver-manager
+        # Если есть requirements.txt, тоже установим
+        if [ -f "requirements.txt" ]; then
+          pip install -r requirements.txt
+        fi
     
-    # Шаг 4: Установить Chrome и ChromeDriver
-    - name: Install Chrome and ChromeDriver
+    # Шаг 4: Установить Chrome (упрощённая версия)
+    - name: Install Chrome
       run: |
         sudo apt-get update
-        sudo apt-get install -y wget unzip
+        sudo apt-get install -y wget
         
-        # Установка Google Chrome
-        wget -q -O - https://dl-ssl.google.com/linux/linux_signing_key.pub | sudo apt-key add -
-        echo "deb [arch=amd64] http://dl.google.com/linux/chrome/deb/ stable main" | sudo tee /etc/apt/sources.list.d/google-chrome.list
-        sudo apt-get update
-        sudo apt-get install -y google-chrome-stable
-        
-        # Установка ChromeDriver
-        CHROME_VERSION=$(google-chrome --version | awk '{print $3}' | cut -d '.' -f 1)
-        CHROMEDRIVER_VERSION=$(curl -s "https://chromedriver.storage.googleapis.com/LATEST_RELEASE_$CHROME_VERSION")
-        wget -q -O /tmp/chromedriver.zip "https://chromedriver.storage.googleapis.com/$CHROMEDRIVER_VERSION/chromedriver_linux64.zip"
-        sudo unzip /tmp/chromedriver.zip -d /usr/local/bin/
-        sudo chmod +x /usr/local/bin/chromedriver
-        
-        # Проверка установки
-        google-chrome --version
-        chromedriver --version
+        # Установка Chrome
+        wget -q -O /tmp/chrome.deb https://dl.google.com/linux/direct/google-chrome-stable_current_amd64.deb
+        sudo apt-get install -y /tmp/chrome.deb
     
-    # Шаг 5: Запустить тесты
+    # Шаг 5: ПРОВЕРКА перед запуском тестов
+    - name: Debug and verify
+      run: |
+        echo "=== Проверка установки ==="
+        python --version
+        pip list | grep -E "selenium|pytest|webdriver"
+        echo ""
+        echo "=== Проверка файлов ==="
+        ls -la *.py
+        echo ""
+        echo "=== Тест импорта ==="
+        python -c "
+        try:
+            from selenium import webdriver
+            from selenium.webdriver.chrome.service import Service
+            from webdriver_manager.chrome import ChromeDriverManager
+            import pytest
+            print('✅ Все импорты работают')
+        except Exception as e:
+            print(f'❌ Ошибка импорта: {e}')
+        "
+        echo ""
+        echo "=== Попытка запуска pytest ==="
+        python -m pytest test_positive_scenario.py --collect-only 2>&1 || echo "Exit code: $?"
+    
+    # Шаг 6: Запустить тесты
     - name: Run tests
       run: |
-         python -m pytest test_positive_scenario.py test_negative_scenario.py -v --html=report.html
+        # Запускаем тесты с выводом максимальной информации
+        python -m pytest test_positive_scenario.py test_negative_scenario.py -v --tb=short --html=report.html
     
-# Шаг 6: Загрузить отчет о тестировании (опционально)
-    - name: Upload test report
-      uses: actions/upload-artifact@v4
-      if: always()  # Загружать даже если тесты упали
-      with:
-        name: test-report
-        path: report.html
