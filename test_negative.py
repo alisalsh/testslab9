@@ -9,9 +9,16 @@ import time
 class TestContactFormPositive(unittest.TestCase):
     
     def setUp(self):
-        # Используем webdriver-manager для автоматической загрузки ChromeDriver
+        # Настройка ChromeOptions для CI/CD среды
+        options = webdriver.ChromeOptions()
+        options.add_argument('--headless')  # Без графического интерфейса для CI/CD
+        options.add_argument('--no-sandbox')
+        options.add_argument('--disable-dev-shm-usage')
+        options.add_argument('--disable-gpu')
+        
+        # Используем webdriver-manager для автоматической загрузки драйвера
         service = Service(ChromeDriverManager().install())
-        self.driver = webdriver.Chrome(service=service)
+        self.driver = webdriver.Chrome(service=service, options=options)
         self.contact_page = ContactPage(self.driver)
         
         current_dir = os.path.dirname(os.path.abspath(__file__))

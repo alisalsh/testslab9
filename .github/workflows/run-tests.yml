@@ -1,92 +1,58 @@
-name: Run Selenium Tests
+name: Run Automated Tests
 
 on:
   push:
     branches: [ main, master ]
   pull_request:
     branches: [ main, master ]
-  workflow_dispatch:
+  workflow_dispatch:  # Позволяет запускать workflow вручную из интерфейса GitHub
 
 jobs:
   test:
-    runs-on: ubuntu-latest
-    
-    strategy:
-      matrix:
-        python-version: ["3.9", "3.10", "3.11"]
+    runs-on: ubuntu-latest  # Используем последнюю версию Ubuntu
     
     steps:
-    # Шаг 1: Получаем код из репозитория
+    # Шаг 1: Получение кода из репозитория
     - name: Checkout repository
-      uses: actions/checkout@v4  # Обновлено до v4
-    
-    # Шаг 2: Устанавливаем Python
-    - name: Set up Python ${{ matrix.python-version }}
-      uses: actions/setup-python@v5  # Обновлено до v5
+      uses: actions/checkout@v3
+      
+    # Шаг 2: Установка Python
+    - name: Set up Python
+      uses: actions/setup-python@v4
       with:
-        python-version: ${{ matrix.python-version }}
-    
-    # Шаг 3: Кэшируем зависимости для ускорения
-    - name: Cache pip packages
-      uses: actions/cache@v4  # Обновлено до v4
-      with:
-        path: ~/.cache/pip
-        key: ${{ runner.os }}-pip-${{ hashFiles('requirements.txt') }}
-        restore-keys: |
-          ${{ runner.os }}-pip-
-    
-    # Шаг 4: Устанавливаем Chrome
-    - name: Install Chrome
-      run: |
-        sudo apt-get update
-        sudo apt-get install -y wget
-        wget -q -O - https://dl.google.com/linux/linux_signing_key.pub | sudo apt-key add -
-        echo "deb [arch=amd64] http://dl.google.com/linux/chrome/deb/ stable main" | sudo tee /etc/apt/sources.list.d/google-chrome.list
-        sudo apt-get update
-        sudo apt-get install -y google-chrome-stable
-        google-chrome --version
-    
-    # Шаг 5: Устанавливаем ChromeDriver
-    - name: Install ChromeDriver
-      run: |
-        # Устанавливаем ChromeDriver
-        CHROME_VERSION=$(google-chrome --version | grep -oE '[0-9]+\.[0-9]+\.[0-9]+')
-        CHROMEDRIVER_VERSION=$(curl -s "https://chromedriver.storage.googleapis.com/LATEST_RELEASE_${CHROME_VERSION%.*}")
-        wget -q "https://chromedriver.storage.googleapis.com/${CHROMEDRIVER_VERSION}/chromedriver_linux64.zip"
-        sudo unzip -o chromedriver_linux64.zip -d /usr/local/bin/
-        sudo chmod +x /usr/local/bin/chromedriver
-        chromedriver --version
-        rm chromedriver_linux64.zip
-    
-    # Шаг 6: Устанавливаем зависимости Python
-    - name: Install Python dependencies
+        python-version: '3.9'  # Указываем версию Python
+        
+    # Шаг 3: Установка зависимостей
+    - name: Install dependencies
       run: |
         python -m pip install --upgrade pip
         pip install -r requirements.txt
-        pip list
-    
-    # Шаг 7: Запускаем тесты
+        
+    # Шаг 4: Установка Chrome и ChromeDriver
+    - name: Install Chrome and ChromeDriver
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y wget unzip
+        wget -q -O - https://dl-ssl.google.com/linux/linux_signing_key.pub | sudo apt-key add -
+        echo "deb [arch=amd64] http://dl.google.com/linux/chrome/deb/ stable main" | sudo tee /etc/apt/sources.list.d/google-chrome.list
+        sudo apt-get update
+        sudo apt-get install -y google-chrome-stable
+        CHROME_VERSION=$(google-chrome --version | awk '{print $3}' | cut -d'.' -f1)
+        wget -O /tmp/chromedriver.zip "https://chromedriver.storage.googleapis.com/$(wget -q -O - https://chromedriver.storage.googleapis.com/LATEST_RELEASE_${CHROME_VERSION})/chromedriver_linux64.zip"
+        sudo unzip /tmp/chromedriver.zip -d /usr/local/bin/
+        sudo chmod +x /usr/local/bin/chromedriver
+        
+    # Шаг 5: Запуск тестов
     - name: Run tests with pytest
       run: |
-        # Запускаем оба теста
-        echo "Running positive tests..."
-        python -m pytest test_positive.py -v
-        echo "Running negative tests..."
-        python -m pytest test_negative.py -v
-    
-    # Шаг 8: Генерируем отчет
-    - name: Generate HTML report
-      if: always()
-      run: |
-        python -m pytest test_positive.py test_negative.py --html=test-report.html --self-contained-html --junitxml=test-results.xml
-    
-    # Шаг 9: Загружаем отчет как артефакт
-    - name: Upload test report
-      if: always()
-      uses: actions/upload-artifact@v4  # Обновлено до v4
+        python -m pytest test_positive_scenario.py test_negative_scenario.py -v
+        
+    # Шаг 6: (Опционально) Генерация отчета о покрытии тестами
+    - name: Upload test results
+      if: always()  # Запускается даже если тесты упали
+      uses: actions/upload-artifact@v3
       with:
-        name: test-reports-python-${{ matrix.python-version }}
+        name: test-results
         path: |
-          test-report.html
-          test-results.xml
-        retention-days: 30
+          __pycache__/
+        retention-days: 5
