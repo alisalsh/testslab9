@@ -5,7 +5,7 @@ on:
     branches: [ main, master ]
   pull_request:
     branches: [ main, master ]
-  workflow_dispatch:  # Позволяет запускать workflow вручную
+  workflow_dispatch:
 
 jobs:
   test:
@@ -14,56 +14,207 @@ jobs:
     steps:
     # Шаг 1: Получение кода из репозитория
     - name: Checkout repository
-      uses: actions/checkout@v4  # Обновлено до v4
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 0  # Получаем всю историю коммитов
       
     # Шаг 2: Установка Python
     - name: Set up Python
-      uses: actions/setup-python@v5  # Обновлено до v5
+      uses: actions/setup-python@v5
       with:
-        python-version: '3.10'  # Более новая версия Python
-        cache: 'pip'  # Кэширование pip-пакетов для ускорения
+        python-version: '3.10'
+        cache: 'pip'
         
-    # Шаг 3: Установка зависимостей
+    # Шаг 3: Проверка структуры проекта
+    - name: Check project structure
+      run: |
+        echo "📁 Current directory: $(pwd)"
+        echo "📁 Listing files:"
+        ls -la
+        echo ""
+        echo "📁 Checking test files:"
+        ls -la *.py || echo "No .py files found"
+        echo ""
+        echo "📄 Checking requirements.txt:"
+        if [ -f requirements.txt ]; then
+          echo "✅ requirements.txt exists"
+          cat requirements.txt
+        else
+          echo "⚠️  requirements.txt not found"
+        fi
+        
+    # Шаг 4: Установка зависимостей
     - name: Install dependencies
       run: |
+        echo "📦 Upgrading pip..."
         python -m pip install --upgrade pip
-        if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
-        pip install selenium pytest webdriver-manager
+        echo "📦 Pip version: $(pip --version)"
         
-    # Шаг 4: Установка Chrome и ChromeDriver (упрощенный способ)
+        echo ""
+        echo "📦 Installing from requirements.txt..."
+        if [ -f requirements.txt ]; then
+          pip install -r requirements.txt
+        else
+          echo "📦 requirements.txt not found, installing basic packages..."
+          pip install selenium pytest webdriver-manager
+        fi
+        
+        echo ""
+        echo "📦 Installed packages:"
+        pip list | grep -E "(selenium|pytest|webdriver)"
+        
+    # Шаг 5: Установка Chrome
     - name: Set up Chrome
-      uses: browser-actions/setup-chrome@v1  # Специальное действие для Chrome
+      uses: browser-actions/setup-chrome@v1
       
-    # Шаг 5: Запуск тестов
+    # Шаг 6: Проверка установки Chrome
+    - name: Verify Chrome installation
+      run: |
+        echo "🌐 Checking Chrome installation..."
+        if command -v google-chrome &> /dev/null; then
+          echo "✅ Chrome is installed"
+          google-chrome --version
+        else
+          echo "❌ Chrome not found"
+        fi
+        
+        echo ""
+        echo "🔧 Checking ChromeDriver..."
+        if command -v chromedriver &> /dev/null; then
+          echo "✅ ChromeDriver is installed"
+          chromedriver --version
+        else
+          echo "⚠️  ChromeDriver not in PATH"
+        fi
+      
+    # Шаг 7: Запуск тестов с детальным выводом
     - name: Run tests with pytest
       run: |
-        python -m pytest test_positive.py test_negative.py -v
+        echo "🧪 Starting test execution..."
+        echo "🧪 Python version: $(python --version)"
+        echo "🧪 pytest version: $(pytest --version)"
         
-    # Шаг 6: Создание простого отчета о тестировании
-    - name: Create test summary
+        echo ""
+        echo "🧪 Available test files:"
+        ls test_*.py 2>/dev/null || echo "No test_*.py files found"
+        
+        echo ""
+        echo "🧪 Running tests..."
+        python -m pytest test_positive.py test_negative.py \
+          -v \
+          --tb=short \
+          --color=yes \
+          --durations=5 \
+          --html=test-report.html \
+          --self-contained-html
+        
+        # Сохраняем код завершения
+        TEST_EXIT_CODE=$?
+        echo "🧪 Test exit code: $TEST_EXIT_CODE"
+        
+        if [ $TEST_EXIT_CODE -eq 0 ]; then
+          echo "✅ All tests passed!"
+        else
+          echo "❌ Some tests failed"
+        fi
+        
+        exit $TEST_EXIT_CODE
+        
+    # Шаг 8: Генерация подробного отчета
+    - name: Create detailed test summary
       if: always()
       run: |
-        echo "# Test Results" >> $GITHUB_STEP_SUMMARY
+        echo "# 📊 Detailed Test Results" >> $GITHUB_STEP_SUMMARY
         echo "" >> $GITHUB_STEP_SUMMARY
-        echo "✅ Tests completed on $(date)" >> $GITHUB_STEP_SUMMARY
+        
+        echo "## 🗓️ Execution Details" >> $GITHUB_STEP_SUMMARY
+        echo "- **Date & Time:** $(date '+%Y-%m-%d %H:%M:%S')" >> $GITHUB_STEP_SUMMARY
+        echo "- **Workflow:** ${{ github.workflow }}" >> $GITHUB_STEP_SUMMARY
+        echo "- **Repository:** ${{ github.repository }}" >> $GITHUB_STEP_SUMMARY
+        echo "- **Branch:** ${{ github.ref_name }}" >> $GITHUB_STEP_SUMMARY
+        echo "- **Commit:** [${{ github.sha }}](https://github.com/${{ github.repository }}/commit/${{ github.sha }})" >> $GITHUB_STEP_SUMMARY
+        echo "- **Triggered by:** ${{ github.actor }}" >> $GITHUB_STEP_SUMMARY
+        
         echo "" >> $GITHUB_STEP_SUMMARY
-        echo "**Workflow:** ${{ github.workflow }}" >> $GITHUB_STEP_SUMMARY
-        echo "**Branch:** ${{ github.ref_name }}" >> $GITHUB_STEP_SUMMARY
-        echo "**Commit:** ${{ github.sha }}" >> $GITHUB_STEP_SUMMARY
+        echo "## ⚙️ Environment Details" >> $GITHUB_STEP_SUMMARY
+        echo "- **Runner OS:** ${{ runner.os }}" >> $GITHUB_STEP_SUMMARY
+        echo "- **Python Version:** $(python --version)" >> $GITHUB_STEP_SUMMARY
         
-    # Шаг 7: (Опционально) Сохранение логирования
-    - name: Save logs
-      if: failure()  # Сохраняем логи только при падении тестов
-      run: |
-        mkdir -p test-logs
-        echo "Test run completed at: $(date)" > test-logs/test-summary.txt
-        echo "GitHub SHA: ${{ github.sha }}" >> test-logs/test-summary.txt
-        echo "Branch: ${{ github.ref }}" >> test-logs/test-summary.txt
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "## 📈 Test Statistics" >> $GITHUB_STEP_SUMMARY
+        if [ -f .pytest_cache/v/cache/lastfailed ]; then
+          echo "❌ Some tests failed in previous run" >> $GITHUB_STEP_SUMMARY
+        else
+          echo "✅ No previously failed tests" >> $GITHUB_STEP_SUMMARY
+        fi
         
-    - name: Upload test logs
-      if: failure()
-      uses: actions/upload-artifact@v4  # Обновлено до v4
+    # Шаг 9: Сохранение артефактов
+    - name: Upload test artifacts
+      if: always()
+      uses: actions/upload-artifact@v4
       with:
-        name: test-failure-logs
-        path: test-logs/
+        name: test-artifacts-${{ github.run_id }}
+        path: |
+          test-report.html
+          .pytest_cache/
         retention-days: 7
+        
+    # Шаг 10: Сохранение логов при неудаче
+    - name: Collect debug information on failure
+      if: failure()
+      run: |
+        echo "🔍 Collecting debug information..."
+        mkdir -p debug-info
+        
+        echo "### System Information ###" > debug-info/system-info.txt
+        uname -a >> debug-info/system-info.txt
+        echo "" >> debug-info/system-info.txt
+        
+        echo "### Python Information ###" >> debug-info/system-info.txt
+        python --version >> debug-info/system-info.txt
+        python -c "import sys; print('Python path:', sys.path)" >> debug-info/system-info.txt
+        echo "" >> debug-info/system-info.txt
+        
+        echo "### Installed Packages ###" >> debug-info/system-info.txt
+        pip list >> debug-info/system-info.txt
+        echo "" >> debug-info/system-info.txt
+        
+        echo "### Chrome Information ###" >> debug-info/system-info.txt
+        google-chrome --version >> debug-info/system-info.txt 2>/dev/null || echo "Chrome not available" >> debug-info/system-info.txt
+        echo "" >> debug-info/system-info.txt
+        
+        echo "### Directory Structure ###" >> debug-info/system-info.txt
+        find . -name "*.py" -type f | head -20 >> debug-info/system-info.txt
+        echo "" >> debug-info/system-info.txt
+        
+        echo "### Test Files Content ###" >> debug-info/system-info.txt
+        for file in test_*.py; do
+          if [ -f "$file" ]; then
+            echo "=== $file ===" >> debug-info/system-info.txt
+            head -20 "$file" >> debug-info/system-info.txt
+            echo "" >> debug-info/system-info.txt
+          fi
+        done
+        
+        echo "✅ Debug information collected"
+        
+    - name: Upload debug information
+      if: failure()
+      uses: actions/upload-artifact@v4
+      with:
+        name: debug-info-${{ github.run_id }}
+        path: debug-info/
+        retention-days: 7
+        
+    # Шаг 11: Финальное сообщение
+    - name: Final status message
+      if: always()
+      run: |
+        if [ ${{ job.status }} == 'success' ]; then
+          echo "🎉 All steps completed successfully!"
+          echo "✅ Workflow execution: SUCCESS"
+        else
+          echo "⚠️  Workflow completed with issues"
+          echo "❌ Workflow execution: FAILED"
+          echo "Check the logs above for details."
+        fi
